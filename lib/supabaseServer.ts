@@ -1,10 +1,11 @@
+// =====================================================================
 // lib/supabaseServer.ts
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+// =====================================================================
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 /**
  * Create a Supabase client for use in Server Components and Route Handlers
- * This handles cookies properly for Next.js App Router
  */
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
@@ -23,9 +24,7 @@ export async function createServerSupabaseClient() {
               cookieStore.set(name, value, options);
             });
           } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            // Ignore - middleware handles this
           }
         },
       },
@@ -34,29 +33,40 @@ export async function createServerSupabaseClient() {
 }
 
 /**
- * Helper to get current user session on server
+ * ✅ Helper to get current authenticated user on server
  */
-export async function getServerSession() {
+export async function getServerUser() {
   const supabase = await createServerSupabaseClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  return session;
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return null;
+  }
+
+  return user;
 }
 
 /**
- * Helper to get current user profile on server
+ * ✅ Helper to get current user profile on server
  */
 export async function getServerProfile() {
   const supabase = await createServerSupabaseClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session) {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
     return null;
   }
 
   const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('id', session.user.id)
+    .from("user_profiles")
+    .select("*")
+    .eq("id", user.id)
     .single();
 
   return profile;

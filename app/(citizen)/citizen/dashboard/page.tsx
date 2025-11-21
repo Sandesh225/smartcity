@@ -1,229 +1,147 @@
+// app/(citizen)/citizen/dashboard/page.tsx
+import { requireSessionAndProfile } from "@/lib/auth/server-profile";
+import Hero from "@/components/citizen/dashboard/Hero";
+import StatsOverview from "@/components/citizen/dashboard/StatsOverview";
+import RecentComplaints from "@/components/citizen/dashboard/RecentComplaints";
+import EmptyDashboard from "@/components/citizen/dashboard/EmptyDashboard";
+import ErrorBanner from "@/components/citizen/dashboard/ErrorBanner";
+import { CitizenDashboardNotices } from "@/components/citizen/notices/CitizenDashboardNotices";
 
+export const dynamic = "force-dynamic";
 
-// FILE: app/(citizen)/citizen/dashboard/page.tsx
-import { requireSessionAndProfile } from '@/lib/auth/server-profile';
-import Link from 'next/link';
-import { FileText, Bell, TrendingUp, Clock } from 'lucide-react';
+export type ComplaintSummary = {
+  id: string;
+  tracking_id: string;
+  title: string;
+  status: "new" | "in_progress" | "resolved" | "closed" | "rejected" | string;
+  priority: "low" | "medium" | "high" | "critical" | string;
+  created_at: string;
+  category_id: string | null;
+};
 
-export default async function CitizenDashboardPage() {
-  const { profile, supabase } = await requireSessionAndProfile('/citizen/dashboard');
+export type ComplaintStats = {
+  total: number;
+  open: number;
+  inProgress: number;
+  resolved: number;
+  resolutionRate: number;
+  lastActivityAt: string | null;
+  mostRecent: ComplaintSummary | null;
+};
 
-  const fullName = profile.full_name ?? 'Citizen';
-  const firstName = fullName.split(' ')[0];
+type NoticeRow = {
+  id: string;
+  title: string;
+  title_nepali: string | null;
+  content: string;
+  slug: string;
+  is_urgent: boolean;
+  is_featured: boolean;
+  published_date: string | null;
+  related_ward_ids: string[] | null;
+  notice_type: "general" | "tender" | "public_hearing" | "emergency" | "event";
+};
 
-  // Fetch user's complaint stats
-  const { data: complaints } = await supabase
-    .from('complaints')
-    .select('id, tracking_id, title, status, priority, created_at, category_id')
-    .eq('citizen_id', profile.id)
-    .order('created_at', { ascending: false })
-    .limit(5);
+function computeStats(complaints: ComplaintSummary[]): ComplaintStats {
+  const total = complaints.length;
+  const open = complaints.filter((c) =>
+    ["new", "in_progress"].includes(c.status)
+  ).length;
+  const inProgress = complaints.filter(
+    (c) => c.status === "in_progress"
+  ).length;
+  const resolved = complaints.filter((c) => c.status === "resolved").length;
+  const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
 
-  const totalComplaints = complaints?.length || 0;
-  const openCount = complaints?.filter(c => ['new', 'in_progress'].includes(c.status)).length || 0;
-  const inProgressCount = complaints?.filter(c => c.status === 'in_progress').length || 0;
-  const resolvedCount = complaints?.filter(c => c.status === 'resolved').length || 0;
+  const mostRecent = complaints[0] ?? null;
+  const lastActivityAt = mostRecent ? mostRecent.created_at : null;
 
-  return (
-    <div className="space-y-6">
-      {/* Welcome Hero */}
-      <section className="dashboard-hero">
-        <div className="hero-left">
-          <h1 className="hero-title">Welcome back, {firstName}! 👋</h1>
-          <p className="hero-subtitle">
-            Your citizen portal for Smart City Pokhara. Submit complaints, track issues, and stay updated.
-          </p>
-
-          <div className="hero-badges">
-            <div className="hero-badge">
-              <span className="hero-badge-dot" />
-              <span>Total complaints: {totalComplaints}</span>
-            </div>
-            <div className="hero-badge">
-              <span className="hero-badge-dot" />
-              <span>Open: {openCount}</span>
-            </div>
-            <div className="hero-badge">
-              <span className="hero-badge-dot" />
-              <span>Resolved: {resolvedCount}</span>
-            </div>
-          </div>
-
-          <div className="hero-actions">
-            <Link href="/citizen/complaints/new" className="btn-primary">
-              <FileText className="w-4 h-4" />
-              Submit New Complaint
-            </Link>
-            <Link href="/citizen/complaints" className="btn-secondary">
-              View All Complaints
-            </Link>
-          </div>
-        </div>
-
-        <div className="hero-right">
-          <div>
-            <p className="hero-metric-label">This Month</p>
-            <p className="hero-metric-main">{totalComplaints}</p>
-            <p className="hero-metric-sub">
-              {openCount} active · {resolvedCount} resolved
-            </p>
-          </div>
-
-          <div className="hero-progress">
-            <div
-              className="hero-progress-bar"
-              style={{ width: `${totalComplaints > 0 ? (resolvedCount / totalComplaints) * 100 : 0}%` }}
-            />
-          </div>
-
-          <p className="text-muted mt-1">
-            Resolution rate based on your submitted complaints
-          </p>
-        </div>
-      </section>
-
-      {/* Stats + Recent Complaints */}
-      <section className="dashboard-grid">
-        {/* Stats Card */}
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <h2 className="card-title">Complaint Summary</h2>
-              <p className="card-subtitle">Overview of your submissions</p>
-            </div>
-          </div>
-
-          <div className="stats-grid">
-            <div className="stat-card">
-              <p className="stat-label">Total</p>
-              <p className="stat-value">{totalComplaints}</p>
-              <p className="stat-pill">All time</p>
-            </div>
-            <div className="stat-card">
-              <p className="stat-label">Open</p>
-              <p className="stat-value">{openCount}</p>
-              <p className="stat-pill">Active</p>
-            </div>
-            <div className="stat-card">
-              <p className="stat-label">In Progress</p>
-              <p className="stat-value">{inProgressCount}</p>
-              <p className="stat-pill">Working</p>
-            </div>
-            <div className="stat-card">
-              <p className="stat-label">Resolved</p>
-              <p className="stat-value">{resolvedCount}</p>
-              <p className="stat-pill">Closed</p>
-            </div>
-          </div>
-
-          <div className="quick-actions">
-            <p className="text-muted">Quick actions</p>
-            <div className="quick-actions-row">
-              <Link href="/citizen/complaints/new" className="chip">
-                + New Complaint
-              </Link>
-              <Link href="/citizen/complaints" className="chip">
-                View All
-              </Link>
-              <Link href="/citizen/notifications" className="chip">
-                <Bell className="w-3 h-3 inline mr-1" />
-                Notifications
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Complaints */}
-        <RecentComplaintsCard complaints={complaints || []} />
-      </section>
-    </div>
-  );
+  return {
+    total,
+    open,
+    inProgress,
+    resolved,
+    resolutionRate,
+    lastActivityAt,
+    mostRecent,
+  };
 }
 
-function RecentComplaintsCard({ complaints }: { complaints: any[] }) {
-  if (complaints.length === 0) {
+export default async function CitizenDashboardPage() {
+  const { profile, supabase } = await requireSessionAndProfile(
+    "/citizen/dashboard"
+  );
+
+  const fullName = profile.full_name ?? "Citizen";
+  const firstName = fullName.split(" ")[0];
+
+  // Fetch complaints and notices in parallel
+  const [complaintsResult, noticesResult] = await Promise.all([
+    supabase
+      .from("complaints")
+      .select(
+        "id, tracking_id, title, status, priority, created_at, category_id"
+      )
+      .eq("citizen_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(12),
+    // ✅ FIXED: Fetch ALL published notices without any filtering
+    supabase
+      .from("notices")
+      .select(
+        "id, title, title_nepali, content, slug, is_urgent, is_featured, published_date, related_ward_ids, notice_type"
+      )
+      .eq("status", "published")
+      .or("expiry_date.is.null,expiry_date.gt.now()")
+      .order("published_date", { ascending: false })
+      .limit(10),
+  ]);
+
+  // Handle complaints error
+  if (complaintsResult.error) {
     return (
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <h2 className="card-title">Recent Complaints</h2>
-            <p className="card-subtitle">Your latest submissions</p>
-          </div>
-        </div>
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <FileText className="w-12 h-12 text-slate-600 mb-4" />
-          <p className="text-sm text-slate-400 mb-4">No complaints yet</p>
-          <Link href="/citizen/complaints/new" className="btn-primary text-xs">
-            Submit First Complaint
-          </Link>
-        </div>
-      </div>
+      <main className="px-4 py-6 md:px-6 md:py-8">
+        <ErrorBanner message="We couldn't load your dashboard right now. Please try again in a moment." />
+      </main>
     );
   }
 
-  return (
-    <div className="card">
-      <div className="card-header">
-        <div>
-          <h2 className="card-title">Recent Complaints</h2>
-          <p className="card-subtitle">Your latest submissions</p>
-        </div>
-        <Link href="/citizen/complaints" className="text-xs text-emerald-400 hover:text-emerald-300">
-          View all →
-        </Link>
-      </div>
+  // Handle notices error gracefully
+  if (noticesResult.error) {
+    console.error("Dashboard notices fetch error:", noticesResult.error);
+  }
 
-      <div className="table-wrapper">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Title</th>
-              <th>Status</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {complaints.map((c) => (
-              <tr key={c.id}>
-                <td className="font-mono text-xs">{c.tracking_id}</td>
-                <td>
-                  <Link
-                    href={`/citizen/complaints/${c.id}`}
-                    className="text-emerald-400 hover:text-emerald-300 text-sm"
-                  >
-                    {c.title}
-                  </Link>
-                </td>
-                <td>
-                  <StatusBadge status={c.status} />
-                </td>
-                <td className="text-xs text-slate-400">
-                  {new Date(c.created_at).toLocaleDateString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+  const complaints = (complaintsResult.data ?? []) as ComplaintSummary[];
+  const notices = (noticesResult.data ?? []) as NoticeRow[];
+  const stats = computeStats(complaints);
+  const isEmpty = complaints.length === 0;
 
-function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { label: string; className: string }> = {
-    new: { label: 'New', className: 'badge-status new' },
-    in_progress: { label: 'In Progress', className: 'badge-status in-progress' },
-    resolved: { label: 'Resolved', className: 'badge-status resolved' },
-    closed: { label: 'Closed', className: 'badge-status closed' },
-  };
-
-  const { label, className } = config[status] || config.new;
+  // Debug: Check what notices we're getting
+  console.log("Dashboard notices count:", notices.length);
+  console.log("Dashboard notices:", notices);
 
   return (
-    <span className={className}>
-      <span className="badge-dot" />
-      <span>{label}</span>
-    </span>
+    <main className="space-y-8 px-4 py-6 md:px-6 md:py-8 lg:space-y-10">
+      {/* Hero Panel */}
+      <Hero firstName={firstName} stats={stats} />
+
+      {/* Dashboard Body */}
+      {isEmpty ? (
+        // No complaints yet → Empty state + Notices side by side
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)]">
+          <EmptyDashboard />
+          <CitizenDashboardNotices initialNotices={notices} />
+        </section>
+      ) : (
+        // User has complaints → Stats + Notices + Recent Complaints
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] xl:gap-8">
+          <div className="space-y-6">
+            <StatsOverview stats={stats} />
+            <CitizenDashboardNotices initialNotices={notices} />
+          </div>
+          <RecentComplaints complaints={complaints} />
+        </section>
+      )}
+    </main>
   );
 }

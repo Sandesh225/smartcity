@@ -1,3 +1,4 @@
+// app/page.tsx
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -28,12 +29,14 @@ export default async function HomePage() {
     }
   );
 
+  // ✅ Use getUser() instead of getSession()
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-  // If no session -> show landing page
-  if (!session) {
+  // If no user or error -> show landing page
+  if (userError || !user) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
@@ -67,7 +70,7 @@ export default async function HomePage() {
   const { data: profile } = await supabase
     .from("user_profiles")
     .select("role")
-    .eq("id", session.user.id)
+    .eq("id", user.id)
     .single();
 
   if (profile?.role) {

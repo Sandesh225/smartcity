@@ -1,10 +1,13 @@
-import { ReactNode } from 'react';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { createServerClient } from '@supabase/ssr';
-import { getDefaultPortalPath, type UserRole } from '@/lib/role-redirect';
+// =====================================================================
+// app/(super-admin)/super-admin/layout.tsx
+// =====================================================================
+import { ReactNode } from "react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { createServerClient } from "@supabase/ssr";
+import { getDefaultPortalPath, type UserRole } from "@/lib/role-redirect";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function SuperAdminLayout({
   children,
@@ -12,7 +15,7 @@ export default async function SuperAdminLayout({
   children: ReactNode;
 }) {
   const cookieStore = await cookies();
-  
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,35 +29,35 @@ export default async function SuperAdminLayout({
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
-          } catch {
-            // Ignore - middleware handles this
-          }
+          } catch {}
         },
       },
     }
   );
 
+  // ✅ Use getUser() instead of getSession()
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-  if (!session) {
-    redirect('/login?next=/super-admin/dashboard');
+  if (error || !user) {
+    redirect("/login?next=/super-admin/dashboard");
   }
 
   const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('full_name, role')
-    .eq('id', session.user.id)
+    .from("user_profiles")
+    .select("full_name, role")
+    .eq("id", user.id)
     .maybeSingle();
 
   if (!profile || !profile.role) {
-    redirect('/login');
+    redirect("/login");
   }
 
   const role = profile.role as UserRole;
 
-  if (role !== 'super_admin') {
+  if (role !== "super_admin") {
     redirect(getDefaultPortalPath(role));
   }
 

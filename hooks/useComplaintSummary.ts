@@ -46,23 +46,25 @@ export function useComplaintSummary() {
     setLoading(true);
     setErrorText(null);
     setSummary(null);
-    const { data, error } = await supabaseBrowser.rpc(
-      'get_complaint_summary',
-      { complaint_uuid: complaintId }
-    );
+
+    // ✅ FIX: Use p_complaint_uuid param name
+    const { data, error } = await supabaseBrowser.rpc("get_complaint_summary", {
+      p_complaint_uuid: complaintId,
+    });
+
     setLoading(false);
 
     if (error) {
-      if ((error as any).code === 'PGRST116') {
-        setErrorText('You are not allowed to view this complaint.');
+      if ((error as any).code === "PGRST116") {
+        setErrorText("You are not allowed to view this complaint.");
       } else {
-        setErrorText('Unable to load complaint details.');
+        setErrorText("Unable to load complaint details.");
       }
       return;
     }
 
     if (!data) {
-      setErrorText('Complaint not found or not accessible.');
+      setErrorText("Complaint not found or not accessible.");
       return;
     }
 

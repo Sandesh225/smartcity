@@ -1,16 +1,14 @@
 // components/admin/complaints/types.ts
-
 export type ComplaintStatus =
-  | 'new'
-  | 'in_review'
-  | 'in_progress'
-  | 'resolved'
-  | 'closed'
-  | 'rejected';
+  | "new"
+  | "in_progress" // CHANGED: from 'in_review'
+  | "resolved"
+  | "closed"
+  | "rejected";
 
-export type ComplaintPriority = 'low' | 'medium' | 'high' | 'critical';
+export type ComplaintPriority = "low" | "medium" | "high" | "critical";
 
-export type AdminComplaintRow = {
+export interface AdminComplaintRow {
   id: string;
   reference_code: string | null;
   title: string;
@@ -22,9 +20,9 @@ export type AdminComplaintRow = {
   assignee_name: string | null;
   created_at: string;
   sla_due_at: string | null;
-};
+}
 
-export type AdminComplaintSummary = {
+export interface AdminComplaintSummary {
   total: number;
   new_count: number;
   in_review_count: number;
@@ -32,10 +30,10 @@ export type AdminComplaintSummary = {
   resolved_count: number;
   closed_count: number;
   overdue_count: number;
-};
+}
 
-export type StaffOption = {
+export interface StaffOption {
   id: string;
   full_name: string;
   email: string;
-};
+}

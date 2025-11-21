@@ -1,8 +1,10 @@
 
 // =====================================================================
 // app/api/notifications/mark-read/route.ts
-// Mark notification as read
 // =====================================================================
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,8 +35,10 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    const { data: session } = await supabase.auth.getSession();
-    if (!session?.user) {
+    // ✅ Use getUser() instead of getSession()
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -49,7 +53,7 @@ export async function POST(req: NextRequest) {
         read_at: new Date().toISOString(),
       })
       .eq('id', notification_id)
-      .eq('user_id', session.user.id);
+      .eq('user_id', user.id);
 
     if (error) {
       console.error('Update error:', error);
@@ -69,5 +73,3 @@ export async function POST(req: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     );
-  }
-}

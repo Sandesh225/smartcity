@@ -1,13 +1,8 @@
+"use client";
 
-// =====================================================================
-// PART 4: FILE UPLOAD COMPONENT
-// =====================================================================
-
-// components/FileUploadInput.tsx
-'use client';
-
-import { useState, useRef } from 'react';
-import { useComplaintAttachmentUpload } from '@/hooks/useComplaintAttachmentUpload';
+import { useState, useRef } from "react";
+import { useComplaintAttachmentUpload } from "@/hooks/useComplaintAttachmentUpload";
+import { Upload, X } from "lucide-react";
 
 interface FileUploadInputProps {
   complaintId: string;
@@ -20,7 +15,7 @@ export function FileUploadInput({
   complaintId,
   onUploadSuccess,
   maxFileSizeMb = 50,
-  accept = 'image/*,video/*',
+  accept = "image/*,video/*",
 }: FileUploadInputProps) {
   const { uploadAttachment, uploading, uploadProgress, error } =
     useComplaintAttachmentUpload();
@@ -31,16 +26,19 @@ export function FileUploadInput({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file size
     const maxSizeBytes = maxFileSizeMb * 1024 * 1024;
     if (file.size > maxSizeBytes) {
       alert(
-        `File exceeds ${maxFileSizeMb}MB limit (${(file.size / 1024 / 1024).toFixed(2)}MB)`
+        `File exceeds ${maxFileSizeMb}MB limit (${(
+          file.size /
+          1024 /
+          1024
+        ).toFixed(2)}MB)`
       );
       return;
     }
 
-    // Show preview
+    // Preview
     const reader = new FileReader();
     reader.onload = (event) => {
       setPreview(event.target?.result as string);
@@ -51,14 +49,16 @@ export function FileUploadInput({
     const result = await uploadAttachment(file, complaintId);
 
     if (result.success && result.url) {
-      onUploadSuccess(result.path || '', result.url);
+      onUploadSuccess(result.path || "", result.url);
     }
 
     // Reset input
     if (inputRef.current) {
-      inputRef.current.value = '';
+      inputRef.current.value = "";
     }
   };
+
+  const openPicker = () => inputRef.current?.click();
 
   return (
     <div className="space-y-3">
@@ -71,68 +71,61 @@ export function FileUploadInput({
         className="hidden"
       />
 
+      {/* Idle / CTA */}
       {!preview && !uploading && (
         <button
-          onClick={() => inputRef.current?.click()}
+          type="button"
+          onClick={openPicker}
           disabled={uploading}
-          className="w-full rounded-lg border-2 border-dashed border-slate-700 bg-slate-900/50 px-4 py-8 text-center hover:border-slate-600 disabled:opacity-50"
+          className="w-full rounded-xl border-2 border-dashed border-slate-700 bg-slate-950/50 px-4 py-8 text-center hover:border-emerald-500/70 hover:bg-slate-900/60 transition-all disabled:opacity-50"
         >
-          <svg
-            className="mx-auto h-8 w-8 text-slate-400 mb-2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-6"
-            />
-          </svg>
-          <p className="text-sm text-slate-300">Click to upload or drag and drop</p>
+          <Upload className="mx-auto h-8 w-8 text-slate-400 mb-2" />
+          <p className="text-sm text-slate-200">
+            Click to upload or drag and drop
+          </p>
           <p className="text-xs text-slate-500 mt-1">
-            {accept === 'image/*,video/*'
-              ? 'Images and videos up to 50MB'
+            {accept === "image/*,video/*"
+              ? `Images and videos up to ${maxFileSizeMb}MB`
               : `Files up to ${maxFileSizeMb}MB`}
           </p>
         </button>
       )}
 
+      {/* Uploading */}
       {uploading && (
         <div className="space-y-2">
-          <div className="h-2 w-full rounded-full bg-slate-700 overflow-hidden">
+          <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
             <div
               className="h-full bg-emerald-500 transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
-          <p className="text-xs text-slate-400">
-            Uploading... {uploadProgress}%
-          </p>
+          <p className="text-xs text-slate-400">Uploading… {uploadProgress}%</p>
         </div>
       )}
 
+      {/* Preview */}
       {preview && !uploading && (
-        <div className="relative rounded-lg overflow-hidden">
-          <img src={preview} alt="Preview" className="max-h-64 w-full object-cover" />
+        <div className="relative rounded-lg overflow-hidden border border-slate-800">
+          <img
+            src={preview}
+            alt="Preview"
+            className="max-h-64 w-full object-cover"
+          />
           <button
+            type="button"
             onClick={() => {
               setPreview(null);
-              if (inputRef.current) inputRef.current.value = '';
+              if (inputRef.current) inputRef.current.value = "";
             }}
-            className="absolute top-2 right-2 rounded-full bg-red-600 p-1 text-white hover:bg-red-700"
+            className="absolute top-2 right-2 rounded-full bg-slate-900/90 p-1.5 text-slate-100 hover:bg-red-600/90 transition-colors"
           >
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-              />
-            </svg>
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
+      {/* Error */}
       {error && (
         <div className="rounded-lg bg-red-950/30 border border-red-900 p-3">
           <p className="text-xs text-red-400">{error}</p>

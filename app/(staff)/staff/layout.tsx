@@ -1,15 +1,15 @@
-import { ReactNode } from 'react';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { createServerClient } from '@supabase/ssr';
-import {
-  getDefaultPortalPath,
-  type UserRole,
-} from '@/lib/role-redirect';
-import { EmailVerificationBanner } from '@/components/auth/EmailVerificationBanner';
-import { LogoutButton } from '@/components/auth/LogoutButton';
+// =====================================================================
+// app/(staff)/staff/layout.tsx
+// =====================================================================
+import { ReactNode } from "react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { createServerClient } from "@supabase/ssr";
+import { getDefaultPortalPath, type UserRole } from "@/lib/role-redirect";
+import { EmailVerificationBanner } from "@/components/auth/EmailVerificationBanner";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function StaffLayout({
   children,
@@ -17,7 +17,7 @@ export default async function StaffLayout({
   children: ReactNode;
 }) {
   const cookieStore = await cookies();
-  
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -31,36 +31,36 @@ export default async function StaffLayout({
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
-          } catch {
-            // Ignore - middleware handles this
-          }
+          } catch {}
         },
       },
     }
   );
 
+  // ✅ Use getUser() instead of getSession()
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-  if (!session) {
-    redirect('/login?next=/staff/dashboard');
+  if (error || !user) {
+    redirect("/login?next=/staff/dashboard");
   }
 
   const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('full_name, role')
-    .eq('id', session.user.id)
+    .from("user_profiles")
+    .select("full_name, role")
+    .eq("id", user.id)
     .maybeSingle();
 
   if (!profile || !profile.role) {
-    redirect('/login');
+    redirect("/login");
   }
 
   const role = profile.role as UserRole;
 
   // staff panel allowed for staff, admin, super_admin
-  if (!['staff', 'admin', 'super_admin'].includes(role)) {
+  if (!["staff", "admin", "super_admin"].includes(role)) {
     redirect(getDefaultPortalPath(role));
   }
 

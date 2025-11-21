@@ -1,5 +1,7 @@
 
-// FILE: app/(citizen)/citizen/layout.tsx
+// =====================================================================
+// app/(citizen)/citizen/layout.tsx
+// =====================================================================
 import { ReactNode } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -32,16 +34,17 @@ export default async function CitizenLayout({ children }: { children: ReactNode 
     }
   );
 
-  const { data: { session } } = await supabase.auth.getSession();
+  // ✅ Use getUser() instead of getSession()
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (error || !user) {
     redirect('/login?next=/citizen/dashboard');
   }
 
   const { data: profile } = await supabase
     .from('user_profiles')
     .select('full_name, role, email')
-    .eq('id', session.user.id)
+    .eq('id', user.id)
     .maybeSingle();
 
   if (!profile || !profile.role) {
@@ -58,7 +61,7 @@ export default async function CitizenLayout({ children }: { children: ReactNode 
   const { count: unreadCount } = await supabase
     .from('notifications')
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .eq('is_read', false);
 
   return (
@@ -76,4 +79,3 @@ export default async function CitizenLayout({ children }: { children: ReactNode 
     </div>
   );
 }
-

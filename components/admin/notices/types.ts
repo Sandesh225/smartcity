@@ -1,12 +1,16 @@
-// components/admin/notices/types.ts
-export type NoticeStatus = 'draft' | 'published' | 'archived';
+// ============================================================================
+// SECTION 1: Types Definition
+// FILE: components/admin/notices/types.ts
+// ============================================================================
+
+export type NoticeStatus = "draft" | "published" | "archived";
 
 export type NoticeType =
-  | 'general'
-  | 'tender'
-  | 'public_hearing'
-  | 'emergency'
-  | 'event';
+  | "general"
+  | "tender"
+  | "public_hearing"
+  | "emergency"
+  | "event";
 
 export type WardOption = {
   id: string;
@@ -39,3 +43,4 @@ export type NoticeRow = {
   created_at: string;
   updated_at: string;
 };
+

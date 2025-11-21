@@ -1,336 +1,323 @@
-// =====================================================================
-// PART 2: COMPLAINT LIST PAGE
-// =====================================================================
-
 // app/(citizen)/citizen/complaints/page.tsx
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useCitizenComplaints } from '@/hooks/useCitizenComplaints';
-import { useComplaintFilters } from '@/hooks/useComplaintFilters';
-import { useComplaintCategories } from '@/hooks/useComplaintCategories';
-import { useWards } from '@/hooks/useWards';
-import Link from 'next/link';
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import { useCitizenComplaints } from "@/hooks/useCitizenComplaints";
+import { useComplaintFilters } from "@/hooks/useComplaintFilters";
+import { useComplaintCategories } from "@/hooks/useComplaintCategories";
+import { useWards } from "@/hooks/useWards";
+
+import { ComplaintToolbar } from "@/components/citizen/complaints/Toolbar";
+import { FilterDrawer } from "@/components/citizen/complaints/FilterDrawer";
+import { ComplaintTable } from "@/components/citizen/complaints/Table";
+import { ComplaintGrid } from "@/components/citizen/complaints/Grid";
+import { EmptyState } from "@/components/citizen/complaints/EmptyState";
+import { LoadingSkeleton } from "@/components/citizen/complaints/LoadingSkeleton";
+import { ErrorBanner } from "@/components/citizen/complaints/ErrorBanner";
+
+export type ComplaintStatus =
+  | "new"
+  | "in_progress"
+  | "resolved"
+  | "closed"
+  | "rejected";
+export type ComplaintPriority = "low" | "medium" | "high" | "critical";
+
+export type Complaint = {
+  id: string;
+  title: string;
+  tracking_id: string;
+  status: ComplaintStatus;
+  priority: ComplaintPriority;
+  category_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ComplaintFilters = {
+  search: string;
+  status: ComplaintStatus[];
+  priority: ComplaintPriority[];
+  category: string[];
+  ward?: string[];
+  dateFrom: string;
+  dateTo: string;
+};
+
+const PAGE_SIZE = 20;
 
 export default function CitizenComplaintsPage() {
   const { user } = useAuth();
   const [pageIndex, setPageIndex] = useState(0);
-  const pageSize = 20;
+  const [view, setView] = useState<"table" | "grid">("table");
+  const [density, setDensity] = useState<"cozy" | "compact">("cozy");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [hoveredComplaint, setHoveredComplaint] = useState<Complaint | null>(
+    null
+  );
 
-  const { complaints, loading, hasMore } = useCitizenComplaints(
+  const { complaints, loading, hasMore, error } = useCitizenComplaints(
     user?.id || null,
-    pageSize,
+    PAGE_SIZE,
     pageIndex
   );
 
-  const { filters, filtered, updateFilter, resetFilters } = useComplaintFilters(complaints);
-  const { categories } = useComplaintCategories();
-  const { wards } = useWards();
+  const safeComplaints: Complaint[] = complaints ?? [];
 
-  if (loading && pageIndex === 0) {
-    return <LoadingState />;
-  }
+  const filtersApi = useComplaintFilters(safeComplaints);
+  const { filters, filtered, updateFilter, resetFilters } = filtersApi as {
+    filters: ComplaintFilters;
+    filtered: Complaint[];
+    updateFilter: <K extends keyof ComplaintFilters>(
+      key: K,
+      value: ComplaintFilters[K]
+    ) => void;
+    resetFilters: () => void;
+  };
+
+  const { categories } = useComplaintCategories();
+  const wardsApi = useWards() as any;
+  const wards = wardsApi?.wards ?? [];
+
+  const categoryMap = useMemo(
+    () =>
+      (categories || []).reduce((acc: Record<string, string>, c: any) => {
+        acc[c.id] = c.category_name;
+        return acc;
+      }, {}),
+    [categories]
+  );
+
+  // Default to grid on small screens
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setView("grid");
+      setDensity("cozy");
+    }
+  }, []);
+
+  const isInitialLoading = loading && safeComplaints.length === 0;
+  const hasFiltersApplied =
+    !!filters.search ||
+    (filters.status && filters.status.length > 0) ||
+    (filters.priority && filters.priority.length > 0) ||
+    (filters.category && filters.category.length > 0) ||
+    (filters.ward && filters.ward.length > 0) ||
+    !!filters.dateFrom ||
+    !!filters.dateTo;
+
+  const appliedFilterChips = useMemo(() => {
+    const chips: Array<{
+      key: keyof ComplaintFilters | "ward";
+      label: string;
+    }> = [];
+    if (filters.search)
+      chips.push({ key: "search", label: `Search: ${filters.search}` });
+    if (filters.status?.length)
+      chips.push({ key: "status", label: `Status: ${filters.status.length}` });
+    if (filters.priority?.length)
+      chips.push({
+        key: "priority",
+        label: `Priority: ${filters.priority.length}`,
+      });
+    if (filters.category?.length)
+      chips.push({
+        key: "category",
+        label: `Category: ${filters.category.length}`,
+      });
+    if (filters.ward?.length)
+      chips.push({ key: "ward", label: `Ward: ${filters.ward.join(", ")}` });
+    if (filters.dateFrom)
+      chips.push({ key: "dateFrom", label: `From: ${filters.dateFrom}` });
+    if (filters.dateTo)
+      chips.push({ key: "dateTo", label: `To: ${filters.dateTo}` });
+    return chips;
+  }, [filters]);
+
+  const searchSuggestions = useMemo(
+    () =>
+      safeComplaints.slice(0, 20).map((c) => ({
+        id: c.id,
+        tracking_id: c.tracking_id,
+        title: c.title,
+      })),
+    [safeComplaints]
+  );
+
+  const handleClearChip = (key: keyof ComplaintFilters | "ward") => {
+    if (key === "search")
+      updateFilter("search", "" as ComplaintFilters["search"]);
+    if (key === "status")
+      updateFilter("status", [] as ComplaintFilters["status"]);
+    if (key === "priority")
+      updateFilter("priority", [] as ComplaintFilters["priority"]);
+    if (key === "category")
+      updateFilter("category", [] as ComplaintFilters["category"]);
+    if (key === "ward") updateFilter("ward", [] as ComplaintFilters["ward"]);
+    if (key === "dateFrom")
+      updateFilter("dateFrom", "" as ComplaintFilters["dateFrom"]);
+    if (key === "dateTo")
+      updateFilter("dateTo", "" as ComplaintFilters["dateTo"]);
+  };
+
+  const handleRetry = () => {
+    // Simple, robust retry: reset pagination and reload
+    setPageIndex(0);
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <section className="card">
-        <div className="card-header">
-          <div>
-            <h1 className="card-title">My Complaints</h1>
-            <p className="card-subtitle">
-              View and track all your submitted complaints
-            </p>
-          </div>
-          <Link
-            href="/citizen/complaints/new"
-            className="btn-primary"
-          >
-            + Submit New Complaint
-          </Link>
-        </div>
+    <main className="space-y-4 md:space-y-6">
+      {/* Top glassy shell */}
+      <section className="rounded-2xl border border-white/5 bg-slate-950/70 px-3 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.75)] backdrop-blur-xl md:px-5 md:py-4">
+        <ComplaintToolbar
+          title="My complaints"
+          description="Search, filter, and track the issues you have reported to Pokhara Metropolitan City."
+          totalCount={safeComplaints.length}
+          filteredCount={filtered.length}
+          view={view}
+          density={density}
+          onViewChange={setView}
+          onDensityToggle={() =>
+            setDensity((prev) => (prev === "cozy" ? "compact" : "cozy"))
+          }
+          onOpenFilters={() => setFiltersOpen(true)}
+          search={filters.search}
+          onSearchChange={(value) => updateFilter("search", value)}
+          appliedFilters={appliedFilterChips}
+          onClearFilter={handleClearChip}
+          onClearAllFilters={resetFilters}
+          searchSuggestions={searchSuggestions}
+        />
       </section>
 
-      {/* Filters */}
-      <section className="card">
-        <div className="space-y-4">
-          {/* Search */}
-          <div>
-            <label className="text-xs font-medium text-slate-200 mb-1.5 block">
-              Search by ID or title
-            </label>
-            <input
-              type="text"
-              value={filters.search}
-              onChange={(e) => updateFilter('search', e.target.value)}
-              placeholder="PKR-20250101-12345 or pothole..."
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-            />
-          </div>
+      {/* Filter drawer */}
+      <FilterDrawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        filters={filters}
+        onFilterChange={updateFilter}
+        onReset={resetFilters}
+        onApply={() => setFiltersOpen(false)}
+        categories={categories}
+        wards={wards}
+      />
 
-          <div className="grid gap-4 md:grid-cols-3">
-            {/* Status Filter */}
-            <div>
-              <label className="text-xs font-medium text-slate-200 mb-1.5 block">
-                Status
-              </label>
-              <select
-                multiple
-                value={filters.status}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions, (o) => o.value);
-                  updateFilter('status', selected);
-                }}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-              >
-                <option value="new">New</option>
-                <option value="in_progress">In Progress</option>
-                <option value="resolved">Resolved</option>
-                <option value="closed">Closed</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </div>
+      {/* Error banner (non-blocking) */}
+      {error && (
+        <ErrorBanner
+          message="We couldn’t load your complaints right now."
+          onRetry={handleRetry}
+        />
+      )}
 
-            {/* Category Filter */}
-            <div>
-              <label className="text-xs font-medium text-slate-200 mb-1.5 block">
-                Category
-              </label>
-              <select
-                multiple
-                value={filters.category}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions, (o) => o.value);
-                  updateFilter('category', selected);
-                }}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-              >
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.category_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Priority Filter */}
-            <div>
-              <label className="text-xs font-medium text-slate-200 mb-1.5 block">
-                Priority
-              </label>
-              <select
-                multiple
-                value={filters.priority}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions, (o) => o.value);
-                  updateFilter('priority', selected);
-                }}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Date From */}
-            <div>
-              <label className="text-xs font-medium text-slate-200 mb-1.5 block">
-                From Date
-              </label>
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => updateFilter('dateFrom', e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-              />
-            </div>
-
-            {/* Date To */}
-            <div>
-              <label className="text-xs font-medium text-slate-200 mb-1.5 block">
-                To Date
-              </label>
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => updateFilter('dateTo', e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              onClick={resetFilters}
-              className="btn-secondary text-xs"
-            >
-              Reset Filters
-            </button>
-            <span className="text-xs text-slate-400 self-center">
-              Showing {filtered.length} of {complaints.length} complaints
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* Results */}
-      <section className="card">
-        {filtered.length === 0 ? (
+      {/* Content shell */}
+      <section className="rounded-2xl border border-white/5 bg-slate-950/70 p-3 shadow-[0_18px_60px_rgba(0,0,0,0.75)] backdrop-blur-xl md:p-4 lg:p-5">
+        {isInitialLoading ? (
+          <LoadingSkeleton variant={view} density={density} />
+        ) : filtered.length === 0 ? (
           <EmptyState
-            hasFilters={
-              filters.search ||
-              filters.status.length > 0 ||
-              filters.category.length > 0 ||
-              filters.priority.length > 0
-            }
+            hasFilters={hasFiltersApplied}
+            onResetFilters={hasFiltersApplied ? resetFilters : undefined}
           />
         ) : (
-          <ComplaintTable complaints={filtered} />
+          <div className="flex flex-col gap-4 lg:flex-row">
+            <div className="flex-1 overflow-hidden">
+              {view === "table" ? (
+                <ComplaintTable
+                  complaints={filtered}
+                  density={density}
+                  categoryMap={categoryMap}
+                  onHoverComplaint={setHoveredComplaint}
+                />
+              ) : (
+                <ComplaintGrid
+                  complaints={filtered}
+                  categoryMap={categoryMap}
+                />
+              )}
+
+              {hasMore && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setPageIndex((p) => p + 1)}
+                    disabled={loading}
+                    className="inline-flex items-center gap-2 rounded-full border border-emerald-500/50 bg-emerald-500/5 px-4 py-1.5 text-xs font-medium text-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.15)] transition hover:border-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loading ? "Loading more…" : "Load more"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Quick peek side panel (desktop only, table view only) */}
+            {view === "table" && (
+              <aside className="hidden w-full max-w-xs shrink-0 lg:block">
+                <QuickPeekPanel
+                  complaint={hoveredComplaint}
+                  categoryMap={categoryMap}
+                />
+              </aside>
+            )}
+          </div>
         )}
       </section>
-
-      {/* Pagination */}
-      {hasMore && (
-        <div className="flex justify-center">
-          <button
-            onClick={() => setPageIndex((p) => p + 1)}
-            disabled={loading}
-            className="btn-secondary"
-          >
-            {loading ? 'Loading...' : 'Load More'}
-          </button>
-        </div>
-      )}
-    </div>
+    </main>
   );
 }
 
-function ComplaintTable({ complaints }: { complaints: any[] }) {
-  return (
-    <div className="table-wrapper">
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Tracking ID</th>
-            <th>Title</th>
-            <th>Status</th>
-            <th>Priority</th>
-            <th>Created</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {complaints.map((c) => (
-            <tr key={c.id}>
-              <td className="font-mono text-xs">{c.tracking_id}</td>
-              <td>{c.title}</td>
-              <td>
-                <StatusBadge status={c.status} />
-              </td>
-              <td>
-                <PriorityBadge priority={c.priority} />
-              </td>
-              <td className="text-xs text-slate-400">
-                {new Date(c.created_at).toLocaleDateString()}
-              </td>
-              <td>
-                <Link
-                  href={`/citizen/complaints/${c.id}`}
-                  className="text-xs text-emerald-400 hover:text-emerald-300"
-                >
-                  View Details →
-                </Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+type QuickPeekPanelProps = {
+  complaint: Complaint | null;
+  categoryMap: Record<string, string>;
+};
 
-function StatusBadge({ status }: { status: string }) {
-  const config = {
-    new: { label: 'New', class: 'badge-status new' },
-    in_progress: { label: 'In Progress', class: 'badge-status in-progress' },
-    resolved: { label: 'Resolved', class: 'badge-status resolved' },
-    closed: { label: 'Closed', class: 'badge-status closed' },
-    rejected: { label: 'Rejected', class: 'badge-status closed' },
-  };
-
-  const { label, class: className } = config[status as keyof typeof config] || config.new;
-
-  return (
-    <span className={className}>
-      <span className="badge-dot" />
-      <span>{label}</span>
-    </span>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: string }) {
-  const config = {
-    low: { label: 'Low', class: 'badge-priority low' },
-    medium: { label: 'Medium', class: 'badge-priority medium' },
-    high: { label: 'High', class: 'badge-priority high' },
-    critical: { label: 'Critical', class: 'badge-priority high' },
-  };
-
-  const { label, class: className } = config[priority as keyof typeof config] || config.medium;
-
-  return <span className={className}>{label}</span>;
-}
-
-function LoadingState() {
-  return (
-    <div className="card">
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-emerald-600 border-r-transparent" />
-          <p className="mt-4 text-sm text-slate-400">Loading complaints...</p>
-        </div>
+function QuickPeekPanel({ complaint, categoryMap }: QuickPeekPanelProps) {
+  if (!complaint) {
+    return (
+      <div className="h-full rounded-2xl border border-white/5 bg-slate-950/80 p-4 text-xs text-slate-500">
+        <p className="mb-1 font-medium text-slate-300">Quick preview</p>
+        <p>Select a complaint row to see a quick summary here.</p>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-function EmptyState({ hasFilters }: { hasFilters: boolean }) {
+  const categoryName = categoryMap[complaint.category_id] ?? "Uncategorized";
+
   return (
-    <div className="flex flex-col items-center justify-center py-12">
-      <div className="text-center max-w-md">
-        <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-slate-800 flex items-center justify-center">
-          <svg
-            className="h-8 w-8 text-slate-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
+    <div className="h-full rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-slate-950/90 via-slate-950/80 to-slate-950/90 p-4 text-xs text-slate-200 shadow-[0_22px_70px_rgba(0,0,0,0.9)]">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-200">
+          {complaint.tracking_id}
+        </span>
+        <span className="rounded-full border border-slate-700/60 bg-slate-900/80 px-2 py-0.5 text-[10px] text-slate-300">
+          {categoryName}
+        </span>
+      </div>
+      <h3 className="mb-2 line-clamp-3 text-[13px] font-semibold text-slate-50">
+        {complaint.title}
+      </h3>
+      <dl className="space-y-1.5 text-[11px] text-slate-400">
+        <div className="flex justify-between gap-2">
+          <dt className="text-slate-500">Created</dt>
+          <dd>{new Date(complaint.created_at).toLocaleString()}</dd>
         </div>
-        <h3 className="text-lg font-semibold text-slate-200 mb-2">
-          {hasFilters ? 'No complaints match your filters' : 'No complaints yet'}
-        </h3>
-        <p className="text-sm text-slate-400 mb-6">
-          {hasFilters
-            ? 'Try adjusting your filters to see more results.'
-            : 'Submit your first complaint to get started with tracking city issues.'}
-        </p>
-        {!hasFilters && (
-          <Link href="/citizen/complaints/new" className="btn-primary">
-            Submit New Complaint
-          </Link>
-        )}
+        <div className="flex justify-between gap-2">
+          <dt className="text-slate-500">Last updated</dt>
+          <dd>{new Date(complaint.updated_at).toLocaleString()}</dd>
+        </div>
+      </dl>
+      <div className="mt-4">
+        <Link
+          href={`/citizen/complaints/${complaint.id}`}
+          className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-3 py-1 text-[11px] font-medium text-slate-950 shadow-[0_0_30px_rgba(16,185,129,0.65)] transition hover:bg-emerald-400"
+        >
+          Open full details
+        </Link>
       </div>
     </div>
   );

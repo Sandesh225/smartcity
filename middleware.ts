@@ -8,7 +8,7 @@ export async function middleware(req: NextRequest) {
     request: {
       headers: req.headers,
     },
-  })
+  });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,40 +16,49 @@ export async function middleware(req: NextRequest) {
     {
       cookies: {
         getAll() {
-          return req.cookies.getAll()
+          return req.cookies.getAll();
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            req.cookies.set(name, value)
-            response.cookies.set(name, value, options)
-          })
+            req.cookies.set(name, value);
+            response.cookies.set(name, value, options);
+          });
         },
       },
     }
-  )
+  );
 
-  // Refresh session if expired - required for Server Components
+  // ✅ Use getUser() to verify authentication
+  // This also refreshes the session if needed
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password']
-  const isPublicRoute = publicRoutes.some(route => req.nextUrl.pathname.startsWith(route))
+  const publicRoutes = [
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
+  ];
+  const isPublicRoute = publicRoutes.some((route) =>
+    req.nextUrl.pathname.startsWith(route)
+  );
 
   // If user is logged in and trying to access login/register, redirect to home
-  if (session && isPublicRoute) {
-    return NextResponse.redirect(new URL('/', req.url))
+  if (user && !error && isPublicRoute) {
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
   // If user is not logged in and trying to access protected routes
-  if (!session && !isPublicRoute && req.nextUrl.pathname !== '/') {
-    const redirectUrl = new URL('/login', req.url)
-    redirectUrl.searchParams.set('next', req.nextUrl.pathname)
-    return NextResponse.redirect(redirectUrl)
+  if ((error || !user) && !isPublicRoute && req.nextUrl.pathname !== "/") {
+    const redirectUrl = new URL("/login", req.url);
+    redirectUrl.searchParams.set("next", req.nextUrl.pathname);
+    return NextResponse.redirect(redirectUrl);
   }
 
-  return response
+  return response;
 }
 
 export const config = {

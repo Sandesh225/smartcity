@@ -22,10 +22,19 @@ export function CitizenNav({ profile, unreadNotifications }: CitizenNavProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: '/citizen/dashboard', label: 'Dashboard', icon: Home },
-    { href: '/citizen/complaints', label: 'My Complaints', icon: FileText },
-    { href: '/citizen/complaints/new', label: 'New Complaint', icon: PlusCircle },
-    { href: '/citizen/notifications', label: 'Notifications', icon: Bell, badge: unreadNotifications },
+    { href: "/citizen/dashboard", label: "Dashboard", icon: Home },
+    { href: "/citizen/complaints", label: "My Complaints", icon: FileText },
+    {
+      href: "/citizen/complaints/new",
+      label: "New Complaint",
+      icon: PlusCircle,
+    },
+    {
+      href: "/citizen/notifications",
+      label: "Notifications",
+      icon: Bell,
+      badge: unreadNotifications,
+    },
   ];
 
   return (
@@ -43,19 +52,20 @@ export function CitizenNav({ profile, unreadNotifications }: CitizenNavProps) {
           <nav className="nav-links">
             {navLinks.map((link) => {
               const Icon = link.icon;
-              const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
-              
+              const isActive =
+                pathname === link.href || pathname.startsWith(link.href + "/");
+
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`nav-link ${isActive ? 'active' : ''}`}
+                  className={`nav-link ${isActive ? "active" : ""}`}
                 >
                   <Icon className="w-4 h-4 inline mr-1.5" />
                   {link.label}
                   {link.badge && link.badge > 0 && (
                     <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-red-500 text-white">
-                      {link.badge > 9 ? '9+' : link.badge}
+                      {link.badge > 9 ? "9+" : link.badge}
                     </span>
                   )}
                 </Link>
@@ -84,7 +94,11 @@ export function CitizenNav({ profile, unreadNotifications }: CitizenNavProps) {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="lg:hidden p-2 text-slate-400 hover:text-slate-200"
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileMenuOpen ? (
+              <X className="w-5 h-5" />
+            ) : (
+              <Menu className="w-5 h-5" />
+            )}
           </button>
         </div>
       </header>
@@ -98,8 +112,12 @@ export function CitizenNav({ profile, unreadNotifications }: CitizenNavProps) {
               <div className="flex items-center gap-3">
                 <div className="logo-pill">SC</div>
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-slate-400">Smart City</div>
-                  <div className="text-sm font-semibold text-slate-100">Pokhara</div>
+                  <div className="text-xs uppercase tracking-wider text-slate-400">
+                    Smart City
+                  </div>
+                  <div className="text-sm font-semibold text-slate-100">
+                    Pokhara
+                  </div>
                 </div>
               </div>
               <button
@@ -117,9 +135,13 @@ export function CitizenNav({ profile, unreadNotifications }: CitizenNavProps) {
                   {profile.full_name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-slate-100">{profile.full_name}</div>
+                  <div className="text-sm font-semibold text-slate-100">
+                    {profile.full_name}
+                  </div>
                   <div className="text-xs text-slate-400">{profile.email}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">Citizen Account</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Citizen Account
+                  </div>
                 </div>
               </div>
             </div>
@@ -128,8 +150,10 @@ export function CitizenNav({ profile, unreadNotifications }: CitizenNavProps) {
             <nav className="flex-1 space-y-2">
               {navLinks.map((link) => {
                 const Icon = link.icon;
-                const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
-                
+                const isActive =
+                  pathname === link.href ||
+                  pathname.startsWith(link.href + "/");
+
                 return (
                   <Link
                     key={link.href}
@@ -137,15 +161,15 @@ export function CitizenNav({ profile, unreadNotifications }: CitizenNavProps) {
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
                       isActive
-                        ? 'bg-emerald-950/50 border border-emerald-800/50 text-emerald-300'
-                        : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200'
+                        ? "bg-emerald-950/50 border border-emerald-800/50 text-emerald-300"
+                        : "text-slate-400 hover:bg-slate-900/50 hover:text-slate-200"
                     }`}
                   >
                     <Icon className="w-5 h-5" />
                     <span className="flex-1 font-medium">{link.label}</span>
                     {link.badge && link.badge > 0 && (
                       <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full bg-red-500 text-white">
-                        {link.badge > 9 ? '9+' : link.badge}
+                        {link.badge > 9 ? "9+" : link.badge}
                       </span>
                     )}
                   </Link>

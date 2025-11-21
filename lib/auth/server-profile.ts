@@ -1,4 +1,4 @@
-//lib/auth/server-profile
+// lib/auth/server-profile.ts
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -26,10 +26,11 @@ export async function requireSessionAndProfile(redirectNext?: string) {
   );
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (authError || !user) {
     if (redirectNext) {
       redirect(`/login?next=${encodeURIComponent(redirectNext)}`);
     }
@@ -38,13 +39,13 @@ export async function requireSessionAndProfile(redirectNext?: string) {
 
   const { data: profile, error } = await supabase
     .from("user_profiles")
-    .select("id, full_name, role")
-    .eq("id", session.user.id)
+    .select("id, full_name, role, ward_id")
+    .eq("id", user.id)
     .single();
 
   if (error || !profile) {
     redirect("/login");
   }
 
-  return { supabase, session, profile };
+  return { supabase, user, profile };
 }

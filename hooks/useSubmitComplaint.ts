@@ -18,6 +18,7 @@ export function useSubmitComplaint(onAfterSubmit?: () => void) {
     reset,
     setStep,
   } = useCitizenComplaintWizard();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const submit = async () => {
@@ -31,7 +32,7 @@ export function useSubmitComplaint(onAfterSubmit?: () => void) {
 
     try {
       const { data, error } = await supabaseBrowser.rpc(
-        'create_citizen_complaint',
+        "create_citizen_complaint",
         {
           p_category_id: selectedCategory.id,
           p_ward_id: wardId,
@@ -44,14 +45,22 @@ export function useSubmitComplaint(onAfterSubmit?: () => void) {
         }
       );
 
-      if (error || !data) {
-        console.error(error);
-        toast.error('Unable to submit complaint.');
+      if (error || !data || (Array.isArray(data) && data.length === 0)) {
+        console.error(
+          "submit error",
+          error,
+          (error as any)?.message,
+          (error as any)?.code
+        );
+        toast.error("Unable to submit complaint.");
         setIsSubmitting(false);
         return;
       }
 
-      const complaintId: string = data.id;
+      const row = Array.isArray(data) ? data[0] : (data as any);
+      const complaintId: string = row.id;
+      const citizenId: string = row.citizen_id;
+
       let failedUploads = 0;
 
       for (const att of attachments) {
@@ -59,7 +68,7 @@ export function useSubmitComplaint(onAfterSubmit?: () => void) {
 
         const { data: storageData, error: storageError } =
           await supabaseBrowser.storage
-            .from('complaint-files')
+            .from("complaint-files")
             .upload(path, att.file);
 
         if (storageError || !storageData) {
@@ -69,14 +78,14 @@ export function useSubmitComplaint(onAfterSubmit?: () => void) {
         }
 
         const { error: metaError } = await supabaseBrowser
-          .from('complaint_attachments')
+          .from("complaint_attachments")
           .insert({
             complaint_id: complaintId,
             file_name: att.file.name,
             file_type: att.file.type,
             file_size_bytes: att.file.size,
             storage_path: storageData.path,
-            uploaded_by: data.citizen_id,
+            uploaded_by: citizenId,
             is_public: false,
           });
 
@@ -87,11 +96,11 @@ export function useSubmitComplaint(onAfterSubmit?: () => void) {
       }
 
       if (failedUploads > 0) {
-        toast('Complaint registered, but some attachments failed.', {
-          icon: '⚠️',
+        toast("Complaint registered, but some attachments failed.", {
+          icon: "⚠️",
         });
       } else {
-        toast.success('Complaint submitted successfully!');
+        toast.success("Complaint submitted successfully!");
       }
 
       reset();
